@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>師大 어학당 원룸 비교</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&family=Space+Grotesk:wght@500;700&display=swap">
+<style>
+/* 레이아웃: 상단 요약 → 지도 + 추천 순위 → 상세 비교표 → 가구 매트릭스 → 비용/주의사항 */
+:root{
+  --bg:#f5f7f6; --surface:#ffffff; --fg:#17201d; --muted:#5d6b66; --line:#dfe5e2;
+  --accent:#0f7b64; --accent-soft:#e0f1ec; --campus:#c2410c;
+  --good:#15803d; --warn:#b45309; --bad:#b91c1c; --goodbg:#e7f5ec; --warnbg:#fbf0dd; --badbg:#fbe5e5;
+  --display:"Space Grotesk","Noto Sans KR",system-ui,sans-serif; --body:"Noto Sans KR",system-ui,sans-serif;
+}
+@media (prefers-color-scheme: dark){:root{
+  --bg:#111715; --surface:#19211e; --fg:#e7eeeb; --muted:#9aa9a3; --line:#2b3632;
+  --accent:#3fc3a0; --accent-soft:#16302a; --campus:#fb923c;
+  --good:#4ade80; --warn:#fbbf24; --bad:#f87171; --goodbg:#16301f; --warnbg:#342a14; --badbg:#3a1c1c; color-scheme:dark}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.6 var(--body)}
+.wrap{max-width:1180px;margin:0 auto;padding-block:28px 60px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:grid;gap:28px}
+h1,h2,h3{font-family:var(--display);text-wrap:balance;margin:0}
+h1{font-size:1.9rem;line-height:1.25}
+h2{font-size:1.25rem;margin-bottom:12px}
+.sub{color:var(--muted);margin:6px 0 0}
+.facts{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:999px;background:var(--accent-soft);color:var(--fg);font-size:.82rem;white-space:nowrap}
+.top{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:20px;align-items:start}
+@media (max-width:900px){.top{grid-template-columns:1fr}}
+#map{height:620px;border-radius:12px;border:1px solid var(--line);background:var(--surface)}
+@media (max-width:900px){#map{height:420px}}
+.ranks{display:grid;gap:10px}
+.rk{display:grid;grid-template-columns:38px minmax(0,1fr);gap:12px;padding:12px 14px;background:var(--surface);border:1px solid var(--line);border-radius:10px;cursor:pointer}
+.rk:hover,.rk:focus-visible{border-color:var(--accent);outline:none}
+.num{width:34px;height:34px;border-radius:50%;background:var(--accent);color:#fff;display:grid;place-items:center;font:700 1rem var(--display)}
+.rk h3{font-size:1rem;display:flex;flex-wrap:wrap;gap:6px 10px;align-items:baseline}
+.price{font-family:var(--display);font-variant-numeric:tabular-nums}
+.rk p{margin:4px 0 0;font-size:.88rem;color:var(--muted)}
+.rk .cons{color:var(--bad);font-size:.82rem;margin-top:4px}
+.pill{font-size:.75rem;padding:1px 8px;border-radius:999px;font-weight:500;white-space:nowrap}
+.p-good{background:var(--goodbg);color:var(--good)} .p-warn{background:var(--warnbg);color:var(--warn)} .p-bad{background:var(--badbg);color:var(--bad)}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:18px}
+.scroll{overflow-x:auto}
+.wrap>*,.top>*{min-width:0}
+.sub{overflow-wrap:anywhere}
+table{border-collapse:collapse;width:100%;font-size:.86rem;font-variant-numeric:tabular-nums}
+th,td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+th{font-weight:500;color:var(--muted);white-space:nowrap;position:sticky;left:0;background:var(--surface)}
+thead th{position:static;color:var(--fg);font-family:var(--display)}
+td small{color:var(--muted)}
+.mx td,.mx th{text-align:center}
+.mx th:first-child,.mx td:first-child{text-align:left}
+.y{color:var(--good);font-weight:700} .n{color:var(--line)}
+.notes{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px}
+.notes ul{margin:8px 0 0;padding-left:18px} .notes li{margin:4px 0}
+a{color:var(--accent)}
+.legend{font-size:.8rem;color:var(--muted);margin-top:8px}
+.leaflet-popup-content{font:13px/1.5 var(--body)}
+.mk{width:30px;height:30px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:var(--accent);border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.4);display:grid;place-items:center}
+.mk span{transform:rotate(45deg);color:#fff;font:700 13px var(--display)}
+.mk.pin{background:var(--muted)}
+.rk.pending{border-style:dashed}
+.rk.pending .num{background:var(--muted)}
+.mk.campus{background:var(--campus);border-radius:6px;transform:none}.mk.campus span{transform:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <h1>師大 어학당 기준 원룸 8곳 비교</h1>
+  <p class="sub">信義房屋 매물 7개 + My Room Abroad 1개 · 기준점: 國立臺灣師範大學 國語教學中心(和平東路一段, 본교) · 2026-11-17 기준 페이지 정보</p>
+  <div class="facts">
+    <span class="chip">월세 8,000 ~ 18,000 TWD</span>
+    <span class="chip">信義房屋 7곳: 보증금 2개월 · 1년 계약</span>
+    <span class="chip">1년 월세 합계 96,000 ~ 216,000 TWD</span>
+    <span class="chip">전기세: 信義房屋 7곳 미기재 / 쉐어하우스는 포함</span>
+  </div>
+</header>
+
+<section class="top">
+  <div>
+    <div id="map" role="region" aria-label="매물 위치 지도"></div>
+    <p class="legend">초록 번호 = 추천 순위 · 회색 ? = 위치만 있는 후보 · 주황 = 師大 어학당 · 작은 점 = MRT역(파랑)·버스정류장(회색). 매물 좌표는 각 사이트 지도 핀 기준이라 실제 주소와 수십 m 차이 날 수 있음.</p>
+  </div>
+  <div>
+    <h2>추천 순서 <small style="font-weight:400;color:var(--muted);font-size:.8rem">1년 거주 기준</small></h2>
+    <div class="ranks" id="ranks"></div>
+  </div>
+</section>
+
+<section class="card">
+  <h2>상세 비교</h2>
+  <div class="scroll"><table id="cmp"></table></div>
+</section>
+
+<section class="card">
+  <h2>가구·가전 포함 여부</h2>
+  <div class="scroll"><table class="mx" id="mx"></table></div>
+</section>
+
+<section class="notes">
+  <div class="card">
+    <h2>시세 비교 기준</h2>
+    <ul>
+      <li>타이베이 독립套房 월세 중위 <b>15,000</b>, 분租套雅房 <b>9,800</b> (내정부 임대보조금 2026 상반기 데이터)</li>
+      <li>대안·신의 독립套房 18,000 / 대안 평당 2,175 · 중산 평당 1,939</li>
+      <li>분租套雅房: 중산·신의 11,000, 대동 10,000, 중정·사림 1만 이하</li>
+      <li>신점구 독립套房 평균 약 17,800 (2025 실거래)</li>
+      <li>이 데이터는 고소득자를 제외한 보조금 신청 계약이라 실제 호가보다 조금 낮게 나오는 편</li>
+    </ul>
+    <p class="legend">출처: <a href="https://udn.com/news/story/7241/9700782" target="_blank" rel="noopener">聯合報</a>, <a href="https://www.peoplenews.tw/articles/lifestyle/49643" target="_blank" rel="noopener">民報</a>, <a href="https://money.udn.com/money/amp/story/5621/9583884" target="_blank" rel="noopener">經濟日報(新店)</a></p>
+  </div>
+  <div class="card">
+    <h2>전기세·추가 비용</h2>
+    <ul>
+      <li>信義房屋 7개 매물은 전기세가 적혀 있지 않음. 套房은 보통 개별 계량기로 <b>1度(kWh)당 단가</b>를 받음</li>
+      <li>법적으로 집주인은 台電 여름철 최고 구간 단가를 넘겨 받을 수 없음. 계약 전 1度당 얼마인지 꼭 물어보기</li>
+      <li>여름에 에어컨을 자주 쓰면 월 1,000~2,000 TWD 정도 나올 수 있음(사용량에 따라 다름)</li>
+      <li>관리비 별도: 新店 약 350 · 수도·가스 포함: 士林 · 관리비 포함: 公館 · 전기·수도·인터넷 포함(월 2,000, 여름 +1,000): 公館 쉐어하우스</li>
+      <li>초기 비용: 信義房屋 매물은 첫 달 월세 + 보증금 2개월(월세 × 3) · 쉐어하우스는 첫 달 13,000 + 보증금 26,000 + 사이트 예약 수수료</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h2>1년 유학생이라면</h2>
+    <ul>
+      <li>1년 계약은 체류 기간과 맞아요. 다만 중간에 나갈 때 보증금을 얼마나 떼는지 계약서에서 확인하세요</li>
+      <li>한국 여권으로는 무비자 90일만 머물 수 있어요. 1년 머물려면 어학당 등록 후 비자를 바꾸거나 체류를 연장해야 할 수 있어요. 방법은 어학당과 주한 타이베이대표부에 꼭 확인하세요</li>
+      <li>계약할 때 거류증(ARC)이 아직 없다면 여권과 입학허가서로 계약할 수 있는지 미리 물어보세요</li>
+      <li>임대보조금(租補)은 거류증을 받은 뒤 신청 자격이 되는지 따로 확인하세요</li>
+      <li>1년이면 가구를 사도 부담이 덜해요. 대신 에어컨은 사기 어려우니 없으면 집주인에게 설치를 요청하세요</li>
+    </ul>
+  </div>
+</section>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+const DATA = [{"url": "https://www.sinyi.com.tw/rent/houseno/C362462", "src": "信義房屋", "rank": 1, "short": "공관 汀州路", "district": "台北市 中正區", "title": "公館捷運旁溫馨獨立套房", "rent": 18000, "mgmt": 0, "mgmtNote": "관리비 357 포함", "incl": "관리비", "ping": 9.32, "excl": 6.6, "type": "독립 套房", "layout": "방1·욕실1", "floor": "6/7층", "elevator": true, "age": 45.0, "cook": true, "pet": false, "guard": false, "extra": "", "commute": "어학당까지 직선 1.5km · YouBike 약 10분 / 도보 약 25분 / 公館역→古亭역 MRT 2정거장 + 도보 ≈ 20분", "market": "높음", "marketNote": "중정·대안권 독립套房 중위 약 15,000~18,000 대비 상단. 다만 관리비 포함·9.3평으로 가장 넓고 가전이 거의 다 있어 추가 비용이 적음.", "why": "생활 편의는 7곳 중 최고예요. 가구·가전(침대·옷장·TV·냉장고·에어컨·세탁기·온수기)이 거의 다 있고, 엘리베이터가 있고, 요리도 할 수 있어요. 9.3평으로 가장 넓고 어학당까지 1.5km예요. 1년 월세 합계가 216,000으로 가장 비싸요.", "cons": "7개 중 최고가 · 인터넷 별도", "id": "C362462", "lat": 25.014060189666, "lng": 121.53385138742, "furn_yes": ["床組", "衣櫃", "電視", "冰箱", "冷氣", "洗衣機", "熱水器"], "mrt": [{"name": "公館", "en": "Gongguan", "lat": 25.0149166, "lng": 121.534264, "m": 104, "routes": ""}, {"name": "台電大樓", "en": "Taipower Building", "lat": 25.0206688, "lng": 121.5282083, "m": 929, "routes": ""}, {"name": "萬隆", "en": "Wanlong", "lat": 25.0019033, "lng": 121.5390234, "m": 1449, "routes": ""}], "bus": [{"name": "捷運公館站", "en": "MRT Gongguan Sta.", "lat": 25.0143624, "lng": 121.5345795, "m": 81, "routes": ""}, {"name": "自來水博物館(太子學舍)", "en": "Water Museum(Dormitory of Prince)", "lat": 25.0144563, "lng": 121.5316369, "m": 227, "routes": ""}, {"name": "三軍總醫院(南華高中)", "en": "Tri-Service General Hospital (Nanhua Senior High School)", "lat": 25.015794, "lng": 121.5311076, "m": 337, "routes": ""}], "campusKm": 1.5, "walkMin": 24}, {"url": "https://www.sinyi.com.tw/rent/houseno/C351098", "src": "信義房屋", "rank": 4, "short": "南海路 1층", "district": "台北市 中正區", "title": "南海路１樓近捷運隔套出租", "rent": 12000, "mgmt": 0, "mgmtNote": "관리비 없음", "incl": "", "ping": 6.0, "excl": 6.0, "type": "분할 套房(隔套)", "layout": "방1·거실1·욕실1", "floor": "1/5층", "elevator": false, "age": 50.2, "cook": false, "pet": true, "guard": false, "extra": "학생·청년 환영 명시", "commute": "師大 본교까지 직선 약 1.3km · 도보 20분 또는 버스/YouBike 10분 이내", "market": "적정", "marketNote": "중정구 분租套房 중위 1만 이하, 독립套房 약 1.5만 사이. 위치를 생각하면 적정하지만 가구가 옷장뿐이라 체감가는 더 높음.", "why": "어학당에서 가장 가까워 걸어서 다닐 수 있어요. 1년 살면 침대·냉장고를 사는 부담이 상대적으로 작아져서 순위가 올라갔어요. 학생 환영이라고 적혀 있어요. 다만 에어컨이 없으니 집주인이 달아줄 수 있는지 물어봐야 해요.", "cons": "가구 거의 없음(에어컨 없음) · 1층(습기·보안) · 취사 불가", "id": "C351098", "lat": 25.0320949, "lng": 121.51608, "furn_yes": ["衣櫃"], "mrt": [{"name": "中正紀念堂", "en": "Chiang Kai-Shek Memorial Hall", "lat": 25.0336955, "lng": 121.5175455, "m": 231, "routes": ""}, {"name": "小南門", "en": "Xiaonanmen", "lat": 25.035901, "lng": 121.5108064, "m": 679, "routes": ""}, {"name": "古亭", "en": "Guting", "lat": 25.0267154, "lng": 121.5227215, "m": 898, "routes": ""}], "bus": [{"name": "牯嶺街小劇場", "en": "Guling St. Avante-Garde Theatre", "lat": 25.0323639, "lng": 121.5158553, "m": 38, "routes": ""}, {"name": "南昌路", "en": "Nanchang Rd.", "lat": 25.0319406, "lng": 121.5166049, "m": 56, "routes": ""}, {"name": "南門", "en": "Nanmen", "lat": 25.0332962, "lng": 121.51573, "m": 138, "routes": ""}], "campusKm": 1.3, "walkMin": 22}, {"url": "https://www.sinyi.com.tw/rent/houseno/C355216", "src": "信義房屋", "rank": 3, "short": "松江南京", "district": "台北市 中山區", "title": "松江南京．精美實惠套房", "rent": 8000, "mgmt": 0, "mgmtNote": "관리비 없음", "incl": "", "ping": 5.2, "excl": 5.2, "type": "套房(오래된 아파트 분할)", "layout": "방1·욕실1", "floor": "2/5층", "elevator": false, "age": 51.0, "cook": false, "pet": false, "guard": false, "extra": "가격 협상 가능 명시", "commute": "忠孝新生역 → 東門역 오렌지선 1정거장 + 도보 12분 ≈ 25분 / 또는 松江南京 → 古亭 그린선 직통", "market": "매우 저렴", "marketNote": "중산구 분租套雅房 중위 11,000, 독립套房 평당 1,939보다 크게 낮음. 너무 싼 편이라 방 상태·에어컨 유무를 꼭 확인해야 함.", "why": "1년 월세 합계가 96,000으로 1위 방보다 120,000 싸요. 그 차이면 침대·냉장고를 사도 많이 남아요. 그린선·오렌지선이 다 가까워 통학도 25분 정도예요. 단, 가구·가전 표시가 하나도 없으니 에어컨이 있는지 꼭 확인하세요. 대만 여름은 에어컨 없이 지내기 어려워요.", "cons": "가구·가전 표기 전무 · 엘리베이터 없음 · 51년 된 건물", "id": "C355216", "lat": 25.048361700922, "lng": 121.53034480185, "furn_yes": [], "mrt": [{"name": "松江南京", "en": "Songjiang Nanjing", "lat": 25.0520141, "lng": 121.5330358, "m": 488, "routes": ""}, {"name": "忠孝新生", "en": "Zhongxiao Xinsheng", "lat": 25.04229, "lng": 121.5328383, "m": 720, "routes": ""}, {"name": "善導寺", "en": "Shandao Temple", "lat": 25.0447619, "lng": 121.5234226, "m": 804, "routes": ""}], "bus": [{"name": "長安國小 (長安)", "en": "Changan Elementary School (Chang'an)", "lat": 25.0484015, "lng": 121.5309669, "m": 63, "routes": ""}, {"name": "長安新生北路口", "en": "Changan & Xinsheng N. Rd. Entrance", "lat": 25.0488216, "lng": 121.5294104, "m": 107, "routes": ""}, {"name": "長安國小(吉林)", "en": "Changan Elementary School(Jilin)", "lat": 25.0495735, "lng": 121.5301245, "m": 137, "routes": ""}], "campusKm": 2.5, "walkMin": 40}, {"url": "https://www.sinyi.com.tw/rent/houseno/C363044", "src": "信義房屋", "rank": 5, "short": "信義 基隆路 (여성전용)", "district": "台北市 信義區", "title": "信義捷運美裝雅房Ｂ限女性", "rent": 13000, "mgmt": 0, "mgmtNote": "관리비 없음", "incl": "", "ping": 5.0, "excl": 5.0, "type": "雅房(욕실 공용)", "layout": "방1 (욕실 공용)", "floor": "2/4층", "elevator": false, "age": 47.5, "cook": false, "pet": false, "guard": false, "extra": "여성 전용 · 버스 喬治商職 정류장(1, 207번 등)", "commute": "和平東路 방면 버스 한 번 ≈ 20분 · 또는 六張犁역(브라운선) 이용", "market": "다소 높음", "marketNote": "신의구 분租套雅房 중위 11,000 대비 약 2,000 비쌈. 대신 인터넷·TV·소파까지 풀옵션이라 추가 지출이 거의 없음.", "why": "풀옵션 방이지만 같은 여성 전용인 2위(公館 쉐어하우스)가 더 가깝고 공과금도 포함이라 순위를 내렸어요. 1년 동안 욕실을 같이 써야 해요.", "cons": "여성 전용 · 욕실 공용 · 엘리베이터 없음", "id": "C363044", "lat": 25.025270013498, "lng": 121.55407503128, "furn_yes": ["沙發", "床組", "衣櫃", "電視", "冰箱", "冷氣", "洗衣機", "熱水器", "網路", "第四台"], "mrt": [{"name": "六張犁", "en": "Liuzhangli", "lat": 25.0238183, "lng": 121.5531211, "m": 188, "routes": ""}, {"name": "信義安和", "en": "Xinyi Anhe", "lat": 25.0331302, "lng": 121.5527328, "m": 884, "routes": ""}, {"name": "麟光", "en": "Linguang", "lat": 25.0184395, "lng": 121.5589054, "m": 902, "routes": ""}], "bus": [{"name": "喬治商職", "en": "George Vocational High School of Taipei", "lat": 25.0263306, "lng": 121.5546403, "m": 131, "routes": ""}, {"name": "主教公署", "en": "Archbishop House", "lat": 25.0251746, "lng": 121.5523458, "m": 175, "routes": ""}, {"name": "黎順里", "en": "Lishun Li", "lat": 25.0252011, "lng": 121.5563311, "m": 227, "routes": ""}], "campusKm": 2.7, "walkMin": 43}, {"url": "https://www.sinyi.com.tw/rent/houseno/C358244", "src": "信義房屋", "rank": 7, "short": "新店 七張", "district": "新北市 新店區", "title": "七張捷運溫馨套房", "rent": 16000, "mgmt": 350, "mgmtNote": "관리비 약 350 별도", "incl": "", "ping": 5.29, "excl": 3.9, "type": "독립 套房", "layout": "방1·욕실1", "floor": "8/8층(최상층)", "elevator": true, "age": 46.2, "cook": false, "pet": false, "guard": true, "extra": "24시간 경비", "commute": "七張역 → 古亭역 그린선 직통 약 8정거장 + 도보 ≈ 35분", "market": "적정", "marketNote": "신점구 독립套房 평균 약 17,800보다 조금 낮지만, 전용면적 3.9평으로 매우 작음.", "why": "역 바로 앞, 24시간 경비, 엘리베이터는 장점이에요. 하지만 통학 35분, 실제 면적 3.9평, 꼭대기 층(여름 더위·전기세)이라 1년 지내기엔 답답할 수 있어요.", "cons": "師大에서 멂 · 실면적 3.9평 · 최상층 · 취사 불가", "id": "C358244", "lat": 24.974179508431, "lng": 121.54325016137, "furn_yes": ["床組", "衣櫃", "冰箱", "冷氣", "洗衣機", "熱水器"], "mrt": [{"name": "七張", "en": "Qizhang", "lat": 24.9750221, "lng": 121.5429203, "m": 99, "routes": ""}, {"name": "新店區公所", "en": "Xindian District Office", "lat": 24.9673862, "lng": 121.5413511, "m": 779, "routes": ""}, {"name": "大坪林", "en": "Dapinglin", "lat": 24.9828172, "lng": 121.5416446, "m": 974, "routes": ""}], "bus": [{"name": "捷運七張站", "en": "MRT Qizhang Sta.", "lat": 24.9741301, "lng": 121.5427968, "m": 46, "routes": ""}, {"name": "北新國小", "en": "Beixin Elementary School", "lat": 24.9739481, "lng": 121.5436879, "m": 51, "routes": ""}, {"name": "捷運七張站(北新)", "en": "MRT Qizhang Sta.(Beixin)", "lat": 24.9748453, "lng": 121.5428262, "m": 85, "routes": ""}], "campusKm": 6.0, "walkMin": 98}, {"url": "https://www.sinyi.com.tw/rent/houseno/C349540", "src": "信義房屋", "rank": 6, "short": "大同 昌吉街", "district": "台北市 大同區", "title": "昌吉２０１", "rent": 10000, "mgmt": 0, "mgmtNote": "관리비 없음", "incl": "", "ping": 5.0, "excl": 5.0, "type": "套房", "layout": "방1·욕실1", "floor": "2/3층", "elevator": false, "age": 74.5, "cook": false, "pet": false, "guard": false, "extra": "延三夜市 근처", "commute": "大橋頭역 → 東門역 오렌지선 약 6정거장 + 도보 ≈ 35분", "market": "적정", "marketNote": "대동구 분租套雅房 중위 10,000과 같은 수준.", "why": "1년 월세 합계 120,000에 침대·에어컨·냉장고·인터넷까지 있어 가격 대비 구성은 좋아요. 다만 74.5년 된 건물이고 세탁기가 없고 통학이 35분 정도 걸려요.", "cons": "74.5년 된 건물 · 세탁기 없음 · 師大에서 멂", "id": "C349540", "lat": 25.066028, "lng": 121.511544, "furn_yes": ["床組", "衣櫃", "冰箱", "冷氣", "熱水器", "網路"], "mrt": [{"name": "大橋頭", "en": "Daqiaotou", "lat": 25.063198, "lng": 121.5126944, "m": 335, "routes": ""}, {"name": "民權西路", "en": "Minquan W. Rd.", "lat": 25.0628506, "lng": 121.519403, "m": 867, "routes": ""}, {"name": "圓山", "en": "Yuanshan", "lat": 25.0714175, "lng": 121.5201361, "m": 1053, "routes": ""}], "bus": [{"name": "延平國小", "en": "Yanping Elementary School", "lat": 25.0662453, "lng": 121.5110397, "m": 56, "routes": ""}, {"name": "延三觀光夜市", "en": "Yanping Night Market", "lat": 25.0644425, "lng": 121.5110576, "m": 183, "routes": ""}, {"name": "昌吉重慶路口 (延平國小)", "en": "Changji & Chongqing Roads", "lat": 25.0664321, "lng": 121.5135235, "m": 204, "routes": ""}], "campusKm": 4.7, "walkMin": 77}, {"url": "https://www.sinyi.com.tw/rent/houseno/C363453", "src": "信義房屋", "rank": 8, "short": "士林 福港街", "district": "台北市 士林區", "title": "百齡國小電梯套房出租", "rent": 14000, "mgmt": 0, "mgmtNote": "관리비·수도·가스 포함", "incl": "관리비·수도·가스", "ping": 6.0, "excl": 6.0, "type": "套房(분할)", "layout": "방1", "floor": "2/7층", "elevator": true, "age": 45.4, "cook": false, "pet": false, "guard": false, "extra": "", "commute": "劍潭역까지 도보 약 10분(779m) → 레드선으로 東門역 → 도보 ≈ 40~45분", "market": "높음", "marketNote": "사림구 분租套雅房 중위 1만 이하 대비 높음. 수도·가스 포함을 감안해도 비싼 편.", "why": "수도·가스·관리비 포함은 장점이에요. 하지만 어학당에서 가장 멀고 에어컨·온수기 표시가 없어요.", "cons": "師大에서 가장 멂 · 에어컨·온수기 없음 · 시세보다 비쌈", "id": "C363453", "lat": 25.08672128411, "lng": 121.51772663038, "furn_yes": ["床組", "冰箱", "洗衣機"], "mrt": [{"name": "劍潭", "en": "Jiantan", "lat": 25.0842913, "lng": 121.5249806, "m": 779, "routes": ""}, {"name": "士林", "en": "Shilin", "lat": 25.0934949, "lng": 121.5262468, "m": 1142, "routes": ""}], "bus": [{"name": "百齡國小", "en": "Bailing Elementary School", "lat": 25.0872032, "lng": 121.5177581, "m": 54, "routes": ""}, {"name": "前港公園", "en": "Qiangang Park", "lat": 25.0866263, "lng": 121.5194071, "m": 170, "routes": ""}, {"name": "百齡里", "en": "Bailing Li", "lat": 25.0853288, "lng": 121.5193298, "m": 224, "routes": ""}], "campusKm": 6.8, "walkMin": 110}, {"url": "https://myroomabroad.com/room/325Room2E", "src": "My Room Abroad", "rank": 2, "short": "公館 쉐어하우스 (여성전용)", "district": "台北市 大安區", "title": "Budget and Cozy Room near Gongguan MRT (325Room2E)", "rent": 11000, "mgmt": 2000, "mgmtNote": "공과금(전기 포함) 월 2,000 고정 · 5~10월은 +1,000", "yearExtra": 6000, "elecIncl": true, "deposit": 26000, "depositNote": "12개월 이상 계약 시 (3~11개월은 30,000)", "incl": "전기·수도·인터넷·청소", "ping": 6.0, "excl": 6.0, "type": "쉐어하우스 방 (5명이 욕실 1개 공유)", "layout": "방1 (욕실·주방 공용)", "floor": "4층", "elevator": true, "age": null, "cook": true, "pet": false, "guard": true, "extra": "주소: 台北市大安區羅斯福路三段325號 2樓之9 (國華大樓) · 사이트에는 4층으로 적혀 있어 층수 확인 필요 · 여성 전용 · 최소 3개월부터 계약 가능 · 영어 예약 사이트 · 예약 취소 시 환불 불가 · 외부 창문 없음(실내 창)", "commute": "어학당까지 직선 1.1km(8곳 중 가장 가까움) · 도보 약 18분 / YouBike 7분 / 公館역 334m", "market": "다소 높음", "marketNote": "대안구 분租套雅房 중위 10,000 대비 월세 11,000은 조금 높아요. 다만 전기·수도·인터넷·청소가 포함이라 실제로 나가는 돈을 비교하면 적정한 편이에요.", "why": "어학당에서 가장 가깝고(1.1km), 전기세까지 포함된 고정 금액이라 1년 총비용(약 162,000)을 예측하기 쉬워요. 가구·가전·주방·세탁기·건조기·청소 서비스까지 있고, 외국인 대상 사이트라 거류증이 없어도 예약하기 쉬워요. 최소 3개월부터 계약할 수 있어 비자 일정이 바뀌어도 유연해요.", "cons": "여성 전용 · 5명이 욕실 1개 공유 · 바깥 창문 없음 · 예약 취소 시 환불 불가", "id": "MRA325", "lat": 25.0171733, "lng": 121.5322556, "furn_yes": ["床組", "衣櫃", "冷氣", "冰箱", "洗衣機", "電視", "沙發", "網路", "天然瓦斯"], "mrt": [{"name": "公館", "en": "Gongguan", "lat": 25.0149166, "lng": 121.534264, "m": 334, "routes": ""}, {"name": "台電大樓", "en": "Taipower Building", "lat": 25.0206688, "lng": 121.5282083, "m": 551, "routes": ""}, {"name": "古亭", "en": "Guting", "lat": 25.0267154, "lng": 121.5227215, "m": 1419, "routes": ""}], "bus": [{"name": "台電大樓", "en": "Taipower Building", "lat": 25.0175248, "lng": 121.5314086, "m": 80, "routes": ""}, {"name": "臺大", "en": "National Taiwan U.", "lat": 25.0180107, "lng": 121.5336269, "m": 176, "routes": ""}, {"name": "三軍總醫院(南華高中)", "en": "Tri-Service General Hospital (Nanhua Senior High School)", "lat": 25.015794, "lng": 121.5311076, "m": 188, "routes": ""}], "campusKm": 1.1, "walkMin": 18}];
+const CAMPUS = {lat:25.02630,lng:121.52770,name:"師大 國語教學中心 (본교)"};
+const FURN = ["床組","衣櫃","冷氣","冰箱","洗衣機","熱水器","電視","沙發","網路","第四台","天然瓦斯"];
+const FURN_KO = {"床組":"침대","衣櫃":"옷장","冷氣":"에어컨","冰箱":"냉장고","洗衣機":"세탁기","熱水器":"온수기","電視":"TV","沙發":"소파","網路":"인터넷","第四台":"케이블TV","天然瓦斯":"도시가스"};
+const fmt = n => n.toLocaleString("en-US");
+const mpill = m => `<span class="pill ${m==="매우 저렴"||m==="적정"?"p-good":m==="다소 높음"?"p-warn":"p-bad"}">시세 ${m}</span>`;
+const L_ = DATA.slice().sort((a,b)=>a.rank-b.rank);
+
+// map
+const map = L.map("map",{scrollWheelZoom:false}).setView([25.03,121.53],12);
+L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}",{maxZoom:19,attribution:'Tiles &copy; Esri'}).addTo(map);
+const icon = (t,cls="") => L.divIcon({className:"",html:`<div class="mk ${cls}"><span>${t}</span></div>`,iconSize:[30,30],iconAnchor:[15,30],popupAnchor:[0,-28]});
+L.marker([CAMPUS.lat,CAMPUS.lng],{icon:icon("師","campus"),zIndexOffset:1000}).addTo(map).bindPopup(`<b>${CAMPUS.name}</b>`);
+const markers = {}; const bounds=[[CAMPUS.lat,CAMPUS.lng]];
+const PIN = {"lat": 25.0184456, "lng": 121.5295836, "addr": "台北市中正區羅斯福路三段240巷7弄14號 부근", "campusKm": 0.9, "walkMin": 15, "mrt": [{"name": "台電大樓", "en": "Taipower Building", "lat": 25.0206688, "lng": 121.5282083, "m": 283, "routes": ""}, {"name": "公館", "en": "Gongguan", "lat": 25.0149166, "lng": 121.534264, "m": 614, "routes": ""}, {"name": "古亭", "en": "Guting", "lat": 25.0267154, "lng": 121.5227215, "m": 1150, "routes": ""}], "bus": [{"name": "台電大樓", "en": "Taipower Building", "lat": 25.0184839, "lng": 121.5305184, "m": 94, "routes": ""}, {"name": "耕莘文教院", "en": "Tien Educational Center", "lat": 25.0190066, "lng": 121.5288901, "m": 94, "routes": ""}, {"name": "三軍總醫院(南華高中)", "en": "Tri-Service General Hospital (Nanhua Senior High School)", "lat": 25.0168787, "lng": 121.5297117, "m": 175, "routes": ""}], "gmap": "https://maps.app.goo.gl/PCohZgaQmjKs7Tyc7"};
+bounds.push([PIN.lat,PIN.lng]);
+PIN.mrt.forEach(s=>L.circleMarker([s.lat,s.lng],{radius:6,color:"#fff",weight:2,fillColor:"#2563eb",fillOpacity:1}).addTo(map).bindTooltip(`MRT ${s.name}`));
+markers.PIN = L.marker([PIN.lat,PIN.lng],{icon:icon("?","pin")}).addTo(map).bindPopup(
+  `<b>추가 후보 (순위 미정)</b><br>${PIN.addr}<br>어학당까지 직선 ${PIN.campusKm}km · 도보 약 ${PIN.walkMin}분<br>MRT ${PIN.mrt[0].name} ${PIN.mrt[0].m}m · 버스 ${PIN.bus[0].name} ${PIN.bus[0].m}m<br>월세·방 정보 없음<br><a href="${PIN.gmap}" target="_blank" rel="noopener">구글 지도</a>`);
+L_.forEach(d=>{
+  bounds.push([d.lat,d.lng]);
+  L.polyline([[d.lat,d.lng],[CAMPUS.lat,CAMPUS.lng]],{color:"#0f7b64",weight:1.5,opacity:.35,dashArray:"4 6"}).addTo(map);
+  d.mrt.forEach(s=>L.circleMarker([s.lat,s.lng],{radius:6,color:"#fff",weight:2,fillColor:"#2563eb",fillOpacity:1}).addTo(map).bindTooltip(`MRT ${s.name}`));
+  d.bus.slice(0,2).forEach(s=>L.circleMarker([s.lat,s.lng],{radius:4,color:"#fff",weight:1,fillColor:"#6b7280",fillOpacity:1}).addTo(map).bindTooltip(`버스 ${s.name}`));
+  markers[d.id] = L.marker([d.lat,d.lng],{icon:icon(d.rank)}).addTo(map).bindPopup(
+    `<b>${d.rank}위 · ${d.short}</b><br>${fmt(d.rent)} TWD/월 · ${d.ping}평<br>어학당까지 직선 ${d.campusKm}km<br>MRT ${d.mrt[0].name} ${d.mrt[0].m}m · 버스 ${d.bus[0]?d.bus[0].name+" "+d.bus[0].m+"m":"-"}<br><a href="${d.url}" target="_blank" rel="noopener">매물 페이지</a>`);
+});
+map.fitBounds(bounds,{padding:[30,30]});
+
+// ranks
+document.getElementById("ranks").innerHTML = L_.map(d=>`
+  <div class="rk" tabindex="0" data-id="${d.id}">
+    <div class="num">${d.rank}</div>
+    <div>
+      <h3>${d.short} <span class="price">${fmt(d.rent)}${d.mgmt?" +"+d.mgmt:""}</span> ${mpill(d.market)}</h3>
+      <p>${d.why}</p>
+      <div class="cons">단점: ${d.cons}</div>
+    </div>
+  </div>`).join("") + `
+  <div class="rk pending" tabindex="0" data-id="PIN">
+    <div class="num">?</div>
+    <div>
+      <h3>台電大樓 골목 (위치만) <span class="pill p-warn">정보 없음</span></h3>
+      <p>${PIN.addr}. 어학당까지 직선 ${PIN.campusKm}km로 가장 가까워요. MRT ${PIN.mrt[0].name}역 ${PIN.mrt[0].m}m, 버스 ${PIN.bus[0].name} ${PIN.bus[0].m}m.</p>
+      <div class="cons">월세·방 형태·가구 정보가 없어 순위에서 뺐어요</div>
+    </div>
+  </div>`;
+document.querySelectorAll(".rk").forEach(el=>{
+  const go=()=>{const m=markers[el.dataset.id];map.setView(m.getLatLng(),15);m.openPopup();document.getElementById("map").scrollIntoView({behavior:"smooth",block:"center"});};
+  el.addEventListener("click",go); el.addEventListener("keydown",e=>{if(e.key==="Enter")go();});
+});
+
+// comparison table
+const rows = [
+  ["매물",d=>`<a href="${d.url}" target="_blank" rel="noopener">${d.src} ${d.id}</a><br><small>${d.title}</small>`],
+  ["지역",d=>d.district],
+  ["월세 (TWD)",d=>`<b>${fmt(d.rent)}</b>${d.mgmt?`<br><small>+${d.elecIncl?"공과금":"관리비"} ${fmt(d.mgmt)}</small>`:""}`],
+  ["포함 항목",d=>d.mgmtNote],
+  ["실제 월 고정비",d=>`<b>${fmt(d.rent+d.mgmt)}</b><br><small>${d.elecIncl?"전기세 포함":"+전기세 별도"}</small>`],
+  ["1년 월세 합계",d=>`<b>${fmt((d.rent+d.mgmt)*12+(d.yearExtra||0))}</b><br><small>${d.elecIncl?"전기세 포함":"전기세 제외"}</small>`],
+  ["보증금",d=>d.deposit?`${fmt(d.deposit)}<br><small>${d.depositNote}</small>`:`${fmt(d.rent*2)} (2개월)`],
+  ["시세 판단",d=>`${mpill(d.market)}<br><small>${d.marketNote}</small>`],
+  ["면적",d=>`${d.ping}평 (${(d.ping*3.3058).toFixed(1)}㎡)${d.excl!==d.ping?`<br><small>전용 약 ${d.excl}평</small>`:""}`],
+  ["평당 월세",d=>`${fmt(Math.round(d.rent/d.excl))}<br><small>전용면적 기준</small>`],
+  ["유형 · 구조",d=>`${d.type}<br><small>${d.layout}</small>`],
+  ["층 · 엘리베이터",d=>`${d.floor}<br><small>${d.elevator?"엘리베이터 있음":"엘리베이터 없음"}</small>`],
+  ["건물 연식",d=>d.age?`${d.age}년`:"<small>미기재</small>"],
+  ["취사 / 반려동물",d=>`${d.cook?"취사 가능":"취사 불가"} / ${d.pet?"가능":"불가"}`],
+  ["어학당까지 (직선)",d=>`<b>${d.campusKm} km</b><br><small>도보 환산 약 ${d.walkMin}분</small>`],
+  ["통학 방법",d=>`<small>${d.commute}</small>`],
+  ["가까운 MRT",d=>d.mrt.map(s=>`${s.name} <small>${s.m}m</small>`).join("<br>")],
+  ["가까운 버스정류장",d=>d.bus.length?d.bus.map(s=>`${s.name} <small>${s.m}m</small>`).join("<br>"):"<small>400m 내 없음</small>"],
+  ["기타",d=>d.extra||"-"],
+];
+document.getElementById("cmp").innerHTML =
+  `<thead><tr><th></th>${L_.map(d=>`<th>${d.rank}위 ${d.short}</th>`).join("")}</tr></thead><tbody>`+
+  rows.map(([h,f])=>`<tr><th>${h}</th>${L_.map(d=>`<td>${f(d)}</td>`).join("")}</tr>`).join("")+"</tbody>";
+
+// furniture matrix
+document.getElementById("mx").innerHTML =
+  `<thead><tr><th>매물</th>${FURN.map(f=>`<th>${FURN_KO[f]}</th>`).join("")}<th>개수</th></tr></thead><tbody>`+
+  L_.map(d=>`<tr><td>${d.rank}위 ${d.short}</td>${FURN.map(f=>d.furn_yes.includes(f)?`<td class="y" aria-label="있음">●</td>`:`<td class="n" aria-label="없음">–</td>`).join("")}<td><b>${d.furn_yes.length}</b>/11</td></tr>`).join("")+"</tbody>";
+</script>
+</body>
+</html>
